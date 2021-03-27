@@ -61,13 +61,24 @@ while (end - start) <= running_time + 1:
                 print("HOCH")
     end = time.time()
     
-with open('VR-i1.csv', mode='w') as employee_file:
-    employee_writer = csv.writer(employee_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-    employee_writer.writerow(xs)
+endResult = []
+u = 0
 
-with open('VR-i1-labels.csv', mode='w') as employee_file:
+for i in events:
+    endResult.append([xs[u*200:u*200+200], i])
+    u += 1
+    
+with open('JS-i3.csv', mode='w') as employee_file:
+    employee_writer = csv.writer(employee_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+    employee_writer.writerow(xs[:len(events) * 200])
+
+with open('JB-i3-labels.csv', mode='w') as employee_file:
     employee_writer = csv.writer(employee_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
     employee_writer.writerow(events)
+    
+#with open('JB-i1-one.csv', mode='w') as employee_file:
+ #   employee_writer = csv.writer(employee_file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+  #  employee_writer.writerow(endResult)
 
 
 # Turn BITalino led on
