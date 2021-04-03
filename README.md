@@ -1,4 +1,4 @@
-<img width="300" alt="Brainbridge" src="https://user-images.githubusercontent.com/53909792/113483826-aa250680-94a5-11eb-9a85-b2d292ba463c.png">
+<img width="200" alt="Brainbridge" src="https://user-images.githubusercontent.com/53909792/113483826-aa250680-94a5-11eb-9a85-b2d292ba463c.png">
 
 Brainbridge tries to build a Brain Machine Interface using single channel EEG. The aim is to build algorithms, that allow reliable communication directly from the brain to any given computer only by thought.
 
