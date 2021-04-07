@@ -1,5 +1,7 @@
 <img width="280" alt="Brainbridge" src="https://user-images.githubusercontent.com/53909792/113830754-37f34100-9787-11eb-9bb2-59938fc3b657.png">
 
+* * *
+
 Brainbridge tries to build a Brain Machine Interface using single channel EEG. The aim is to build algorithms, that allow reliable communication directly from the brain to any given computer only by thought.
 
 This package includes data collected from single channel EEG measurements from electrodes placed on C4 after the international 10-20 system for EEG.
