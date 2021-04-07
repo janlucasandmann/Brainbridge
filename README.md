@@ -1,4 +1,4 @@
-<img width="280" alt="Brainbridge" src="https://user-images.githubusercontent.com/53909792/113830754-37f34100-9787-11eb-9bb2-59938fc3b657.png">
+<img width="280" alt="Brainbridge" src="https://user-images.githubusercontent.com/53909792/113840468-ff586500-9790-11eb-8af9-2d616ab2bfe2.png">
 
 * * *
 
