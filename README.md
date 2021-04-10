@@ -14,7 +14,7 @@ All data is collected with a frequency of 100Hz and related to events, in which 
 
 Early studies show a clear correlation between features extracted from the data and the events, which indicates, that event related potential can be identified using the data. Below you can see a complexity matrix for selected features and the events from the extracted data. Correlations between all features and the respective events are marked in the image below, as they represent the most interesting part. The approach is far from perfect, but progresses fastly.
 
-<img width="755" alt="Bildschirmfoto 2021-04-03 um 17 05 05" src="https://user-images.githubusercontent.com/53909792/113484373-43551c80-94a8-11eb-86c6-232db26cab59.png">
+<img width="755" alt="Correlation Matrix" src="https://user-images.githubusercontent.com/53909792/114274014-d9df8b80-9a1c-11eb-8107-b42686057ad5.png">
 
 For any ideas in context of feature selection, machine learning models, measuring methods, or anything else that could help, feel free to reach out!
 
