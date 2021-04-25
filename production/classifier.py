@@ -5,28 +5,30 @@ import scipy.signal
 import math
 import time
 from bitalino import BITalino
-import csv
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import metrics
 import pandas as pd
-
+from sklearn.linear_model import LinearRegression
 import helpers as hp
 
 # How long should one interval be?
 interval_time = 2
 
 # How many intervals should be measured?
-measurement_intervals = 50
+measurement_intervals = 40
 
 # Define list of events to initially train the classififer with real labels
-events_initial = [0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0]
-#events_initial = [0,0,0,1,1,1]
 
-# Measurements are too noisy in the beginning --> wait a few seconds
-waiting_intervals = 10
+#events_initial = [0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0]
+events_initial = [0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0]
+#events_initial = [0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0]
 
-# How many intervals for initialization? (including waiting intervals)
-initialization_intervals = len(events_initial) + waiting_intervals
+
+#events_initial = [1,0,1,0]
+
+
+# How many intervals for initialization?
+initialization_intervals = len(events_initial)
 
 # Get total running time of program in seconds
 running_time = (len(events_initial) + measurement_intervals) * interval_time
@@ -66,7 +68,14 @@ start = time.time()
 end = time.time()
 
 clf=RandomForestClassifier(n_estimators=10)
+reg = LinearRegression()
 X_indices = []
+X_indices_real = []
+mini_indices = []
+maxi_indices = []
+data_saved = []
+
+GLOBAL_CORR_LIMIT = 0.28
 
 
 
@@ -101,6 +110,17 @@ def splitData(data_raw):
             
     return data_split
     
+def reduceFeaturesBackup(input_data, X_indices):
+    res = []
+    
+    c = 0
+    for i in input_data:
+        if c in X_indices:
+            res.append(i)
+        c += 1
+            
+    return res
+
 def reduceFeatures(input_data, X_indices):
     res = []
     
@@ -115,11 +135,17 @@ def reduceFeatures(input_data, X_indices):
 
 def calibrateModel(data_raw_one, data_raw_two, events_raw):
     global clf
+    global reg
     global X_indices
+    global mini_indices
+    global maxi_indices
+    global data_saved
+    global X_indices_real
+    global GLOBAL_CORR_LIMIT
     
     print("step 1 / 7")
-    data_raw = generateInputData(data_raw_one, data_raw_two) # From now on all sensors in one list
-    data_split = splitData(data_raw)
+    data_raw = generateInputData(data_raw_one, data_raw_two) # From now on all sensors in one list 
+    data_split = splitData(data_raw) # [ [ [x,y], [x,y], ... ], ... ]
     #print(len(data_split))
     #print(len(data_split[0]), "data split...")
     #print(len(data_split[0][0]), "data split......")
@@ -127,35 +153,80 @@ def calibrateModel(data_raw_one, data_raw_two, events_raw):
     data, events = hp.removeArtifacts(data_split, events_raw, 10000, -10, 370, -1)
     print("step 3 / 7")
     # Get Extreme Points
-    mini, maxi = hp.extremePointsCorrelation(data, events, 10)
-    print(len(data))
-   # print(len(data[0]))
+    mini, maxi, mini_indices, maxi_indices = hp.extremePointsCorrelation(data, events, 10)
+    
+    
+    print("MINI: ", mini, len(mini))
+    print("MAXI: ", maxi, len(maxi))
+    
     print("step 4 / 7")
     # Get frequency bands
-    cores_real_numbers = hp.getFrequencies(1,3, data)
+    cores_real_numbers = hp.getFrequencies(1,5, data)
     print("step 5 / 7")
     # Combine features
-    X_whole_input = cores_real_numbers + mini + maxi
+    X_whole_input = cores_real_numbers #+ mini + maxi # ??????????????????? DAS GEHT SO NICHT ........
     print("step 6 / 7")
     # Feature reduction
-    X_recuded, X_indices = hp.featureReduction(X_whole_input, 0, events)
+    X_reduced, X_indices = hp.featureReduction(X_whole_input, 0.12, events)
+    #print("TESTETSTETETST 01010101: ", cores_real_numbers)
     
-    X_train, target = hp.generateTrainingSet(X_recuded, events)
+    X_reduced_res = []
+    
+    c = 0
+    for i in X_reduced:
+        X_reduced_res_row = i
+        for x in np.transpose(mini)[c]:
+            X_reduced_res_row.append(x)
+        for x in np.transpose(maxi)[c]:
+            X_reduced_res_row.append(x)
+        X_reduced_res.append(X_reduced_res_row)
+        c += 1
+      
+    c = 0
+    for i in np.transpose(X_reduced_res):
+        if math.sqrt(np.corrcoef(i, events)[0][1] ** 2) > GLOBAL_CORR_LIMIT:
+            X_indices_real.append(c)
+        c += 1
+        
+    X_reduced_res_real = []
+    
+    for epoch in X_reduced_res:
+        X_reduced_res_real_row = []
+        c = 0
+        for x in epoch:
+            if c in X_indices_real:
+                X_reduced_res_real_row.append(x)
+            c += 1
+        X_reduced_res_real.append(X_reduced_res_real_row)
+            
+    
+    X_train, target = hp.generateTrainingSet(X_reduced_res_real, events)
+    print("X Train: ", X_train)
     print("Events", events, target)
+    print("X indices: ", X_indices)
     print("step 7 / 7")
     clf.fit(X_train, target)
-    #print("Accuracy:",metrics.accuracy_score(X_train, target))
-    
+    reg = LinearRegression().fit(X_train, target)
+    print("Accuracy:",metrics.accuracy_score(clf.predict(X_train), target))
+    print("Predictions: ", clf.predict(X_train))
 
 def main(data_raw_one, data_raw_two):
+    
+    #print("Data raw one: ", data_raw_one)
+    #print("Data raw two: ", data_raw_two)
+    
     global X_indices
+    global mini_indices
+    global maxi_indices
+    
+    global X_indices_real
     
     data_raw = generateInputData(data_raw_one, data_raw_two)
-    data_split = data_raw # Data already split...
+    data_split = [data_raw] # Data already split...
     
     extremeValue = False
     
-    if 1018 in data_split[0]:
+    if 1018 in np.transpose(data_split)[0]:
         extremeValue = True
         
     if extremeValue:
@@ -163,26 +234,74 @@ def main(data_raw_one, data_raw_two):
         
     else:
         data = data_split
+        print("Data: ", data, len(data))
         
         # Get Extreme Points
-        mini, maxi = hp.extremePointsCorrelationMain(data, 10)
+        mini, maxi = hp.extremePointsCorrelationMain(data, 10, mini_indices, maxi_indices)
+        
+        #print("Mini zuzu, Maxi zuzuzu: ", mini, maxi, mini_indices, maxi_indices)
         
         # Get frequency bands
-        cores_real_numbers = hp.getFrequencies(1,3, data)
+        cores_real_numbers = hp.getFrequencies(1,5, data)
+        #print("COOOOOOOOORRRRREESSS 01010101", cores_real_numbers)
+        #print("cores_real_numbers: ", cores_real_numbers)
 
         # Combine features
-        X_whole_input = cores_real_numbers + mini + maxi
+        X_whole_input = cores_real_numbers
+        
+        #print("X_whole_input: ", X_whole_input[0:20], len(X_whole_input))
 
-        X_reduced = hp.flatten_list(reduceFeatures(X_whole_input, X_indices))
+        X_reduced = reduceFeatures(X_whole_input, X_indices)
+        #X_reduced = X_reduced + mini + maxi
+        #print("X_reduced: ", X_reduced)
+        #print("Len X_reduced: ", len(X_reduced))
+        #print("X_reduced: ", X_reduced[len(X_reduced) - 1])
+        #print("Len X_reduced: ", X_reduced[len(X_reduced) - 1])
         
-      #  X_predict = pd.DataFrame(hp.flatten_list(X_reduced))
+        X_predict = hp.flatten_list(X_reduced)
         
-        prediction = clf.predict([X_reduced])
+        for i in mini:
+            for x in i:
+                X_predict.append(x)
+        for i in maxi:
+            for x in i:
+                X_predict.append(x)
+                
+                
+        X_reduced_res_real = []
+    
+        c = 0
+        for x in X_predict:
+            if c in X_indices_real:
+                X_reduced_res_real.append(x)
+            c += 1
         
-        if prediction == 1:
-            print("SIGNAL!!!!!!! ", prediction)
-        else:
-            print(prediction)
+        print("X PREDICT: ", X_reduced_res_real, len(X_reduced_res_real))
+        #    print("UIUO", data)
+        #   print("UIUO", mini, maxi)
+        #   print("UIUO", cores_real_numbers)
+        # print("UIUO", X_whole_input)
+        #    print("--------------------")
+        #   print("X WHOLE INPUT: ", len(X_whole_input))
+        #  print("X INDICES: ", X_indices)
+        ##print("REDUCE FEATURES: ", reduceFeatures(X_whole_input, X_indices))
+        #print(len(X_reduced))
+        
+        
+        
+        prediction = clf.predict([X_reduced_res_real])
+        pred_linreg = reg.predict([X_reduced_res_real])
+        
+        pred.append([prediction, pred_linreg])
+        
+        
+        #if prediction == 1:
+            #print("SIGNAL!!!!!!! ", prediction)
+        #else:
+            #print("No Signal. ", prediction)
+            
+        print("RANDOM FOREST PREDICTION: ", prediction)
+        print("LIN REG PREDICTION: ", pred_linreg)
             
             
 init_count = 0
@@ -190,9 +309,10 @@ print("Entering initialization phase")
 model_train_counter = 0
 
 while (end - start) <= running_time:
+    end = time.time()
    
     raw = device.read(nSamples).tolist()
-    input_data_one = []
+    input_data_one = [] 
     input_data_two = []
     
     
@@ -205,22 +325,20 @@ while (end - start) <= running_time:
         if 1018 in input_data_one:
             print("warning")
         
-        
-        
-        if init_count > waiting_intervals:
-            c = 0
-            for i in input_data_one:
-                xs_one_initialization.append(i)
-                xs_two_initialization.append(input_data_two[c])
-                c += 1
+        c = 0
+        for i in input_data_one:
+            xs_one_initialization.append(i)
+            xs_two_initialization.append(input_data_two[c])
+            c += 1
                 
         if len(xs_one_initialization) % (interval_time * samplingRate) == 0: # After n seconds of measurement
-            if init_count > waiting_intervals:
-                if events_initial[init_count - waiting_intervals] == 1:
+            init_count += 1
+            if init_count < len(events_initial):
+                if events_initial[init_count] == 1:
                     print("HOCH")
                 else:
                     print("runter")
-            init_count += 1
+            
 
             
         
@@ -229,17 +347,19 @@ while (end - start) <= running_time:
             print("jojo")
             calibrateModel(xs_one_initialization, xs_two_initialization, events_initial)
             model_train_counter += 1
+            
         c = 0
         for i in input_data_one:
             xs_one_row.append(i)
             xs_two_row.append(input_data_two[c])
+            c += 1
             
         if len(xs_one_row) % (interval_time * samplingRate) == 0: # After n seconds of measurement
             xs_one.append(xs_one_row)
             xs_two.append(xs_two_row)
-            main([xs_one_row], [xs_two_row])
+            main(xs_one_row, xs_two_row)
             xs_one_row = []
             xs_two_row = []
             
             
-hp.write([events_initial, xs_initialization, xs, pred], ["events_initial", "initialization_data", "production_data", "predictions"], "subject_1")
+hp.write([events_initial, xs_one_initialization, xs_two_initialization, xs_one, xs_two, pred], ["events_initial", "initialization_data_one", "initialization_data_two", "production_data_one", "production_data_two", "predictions"], "subject_1")

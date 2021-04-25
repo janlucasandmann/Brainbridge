@@ -2,6 +2,7 @@ import scipy.signal
 import numpy as np
 import math
 import pandas as pd
+import csv
 
 # Cut out extremely high or low values, as they are probably measuring errors
 
@@ -10,30 +11,22 @@ def removeArtifacts(data_input, events_input, upper_limit_one, lower_limit_one, 
   events = []
   u = 0
 
-  print("data_input", len(data_input))
-  print("data_input", len(data_input[0]))
-  print("data_input", len(data_input[0][0]))
-
   for i in data_input:
     extreme_value_found = False
     for x in i:
       c = 0
-      print(x)
       while c < 2:
         if c == 0:
-          if x[c] == 10180.0:
-            print("b1", x[c])
+          if x[c] == 1018.0:
             extreme_value_found = True
             break
           else:
-            if x[c] == 3700.0:
-              print("b2", x[c])
+            if x[c] == 38.0:
               extreme_value_found = True
               break
         c += 1
 
     if not extreme_value_found:
-        print("geeeeeeht hier wassssssssss??????????????")
         data.append(i)
         events.append(events_input[u])
         u += 1
@@ -134,11 +127,14 @@ def getFeatures(lowcut, highcut, input_data):
   temp_top_val_fft = []
   baseline_difference_fft = []
 
-  print(input_data[0])
+  #print("INPUT DATA [0][0]: ", input_data[0][0])
 
   for i in input_data[0][0]:
+    #print("COURIOUS: ", i)
     temp_top_val.append(0)
     temp_top_val_fft.append(0)
+    
+  #print("FIRST EPOCH INPUT DATA: ", input_data[0])
 
   for epoch in input_data:
     c = 0
@@ -155,6 +151,8 @@ def getFeatures(lowcut, highcut, input_data):
     baseline_difference_fft_row = []
 
     for x in np.transpose(epoch):
+      
+      #print("X IN EPOCH TRANSPOSED: ", x)
 
       filtered = butter_bandpass_filter(x - np.mean(x), lowcut=lowcut, highcut=highcut, fs=100)
       filtered_fft = np.fft.fftn(filtered)
@@ -195,6 +193,8 @@ def getFeatures(lowcut, highcut, input_data):
 # to determine, which class is the nearest to the given interval.
 
 def getAverages(data, events):
+    
+  # data: [ [ [x,y], [x,y], [x,y], ... ], [ [x,y], [x,y], [x,y], ... ], ... ]
 
   average_up = []
   average_down = []
@@ -207,7 +207,6 @@ def getAverages(data, events):
       average_down.append(i)
     c += 1
 
-  print(len(average_down))
 
   average_up_transpose = np.transpose(average_up)
   average_down_transpose = np.transpose(average_down)
@@ -221,7 +220,6 @@ def getAverages(data, events):
   for sensor in average_down_transpose:
     average_down_res.append(np.average(i))
 
-  print(len(average_up), "AVG UP")
     
   return average_up_res, average_down_res
 
@@ -258,18 +256,39 @@ def findLocalExtremes(up, down, scaler):
 
   return minima_up, maxima_up, minima_down, maxima_down
 
-def findLocalExtremesMain(data, scaler):
+def findLocalExtremesMain(data, scaler, minima_indices, maxima_indices):
+  # [[x,y], [x,y], [x,y], ...]
   minima = []
   maxima = []
 
+  minima_res = []
+  maxima_res = []
+  #print("FIND LOCAL EXTREMES: ", data, len(data), len(data[0]), len(data[0][0]))
+
   i = 0
 
-  while i < len(data):
-    minima.append(np.min(data[i:i+scaler]))
-    maxima.append(np.max(data[i:i+scaler]))
-    i += scaler
+  for i in np.transpose(data):
+    minima_row, maxima_row = findLocalExtremesRow(i, scaler)
+    minima.append(minima_row)
+    maxima.append(maxima_row)
+    
+  #while i < len(data):
+  #minima.append(np.min(data[i:i+scaler]))
+  #maxima.append(np.max(data[i:i+scaler]))
+  #i += scaler
+    
+  c = 0
+  for i in minima:
+    if c in minima_indices:
+      minima_res.append(i)
 
-  return minima, maxima
+  c = 0
+  for i in maxima:
+    if c in maxima_indices:
+      maxima_res.append(i)
+        
+
+  return minima_res, maxima_res
 
 def findLocalExtremesRow(row, scaler):
   minima = []
@@ -289,7 +308,9 @@ def findLocalExtremesRow(row, scaler):
   
 def extremePointsCorrelation(data, events, scaler):
 
+  # zuerst Sensor 1, dann Sensor 2...
   avg_up, avg_down = getAverages(data, events)
+  # compute extreme points for averaged data
   minima_up, maxima_up, minima_down, maxima_down = findLocalExtremes(avg_up, avg_down, scaler)
   
   corr_res_minima = []
@@ -297,13 +318,16 @@ def extremePointsCorrelation(data, events, scaler):
   minima_array = []
   maxima_array = []
 
+  minima_indices = []
+  maxima_indices = []
+
   for epoch in data:
     
     corr_res_maxima_row = []
     minima_array_row = []
     maxima_array_row = []
 
-    for i in epoch:
+    for i in np.transpose(epoch):
       minima, maxima = findLocalExtremesRow(i, scaler)
       minima_array_row.append(minima) # Consists of local minima per epoch --> onedimensional
       maxima_array_row.append(maxima) # Consists of local maxima per epoch --> onedimensional
@@ -313,29 +337,42 @@ def extremePointsCorrelation(data, events, scaler):
 
   minima_res = []
   maxima_res = []
-
+    
+  k = 0
   for epoch in np.transpose(minima_array):
     c = 0
+    append = False
 
     for i in epoch:
-      if math.sqrt(np.corrcoef(i, events)[0][1] ** 2) > 0.1:
-        minima_res.append(epoch[c])
+      #if math.sqrt(np.corrcoef(i, events)[0][1] ** 2) > 0.1:
+      minima_res.append(epoch[c])
+      append = True
       c+=1
+    if append:
+      minima_indices.append(k)
+    k += 1
 
+  k = 0
   for epoch in np.transpose(maxima_array):
     c = 0
+    append = False
 
     for i in epoch:
-      if math.sqrt(np.corrcoef(i, events)[0][1] ** 2) > 0.1:
-        maxima_res.append(epoch[c])
+      #if math.sqrt(np.corrcoef(i, events)[0][1] ** 2) > 0.1:
+      maxima_res.append(epoch[c])
+      append = True
       c+=1
+    if append:
+      maxima_indices.append(k)
+    k += 1
+  
+  print("MINIMA FUFUFU: ", minima_indices, maxima_indices)
 
-  return minima_res, maxima_res
+  return minima_res, maxima_res, minima_indices, maxima_indices
 
-def extremePointsCorrelationMain(data, scaler):
+def extremePointsCorrelationMain(data, scaler, mini_indices, maxi_indices):
 
-  avg = getAveragesMain(data)
-  minima, maxima = findLocalExtremesMain(avg, scaler)
+  minima, maxima = findLocalExtremesMain(data, scaler, mini_indices, maxi_indices)
 
   return minima, maxima
 
@@ -372,15 +409,16 @@ def getFrequencies(min, max, data):
 def featureReduction(input_data, corr_limit, events):
   res = []
   indices = []
-  c = 0
+  
 	
   checker = np.transpose(input_data)
-  print("Checker: ", len(checker))
-  print("Checker: ", len(checker[0]))
+  #print("Checker: ", len(checker))
+  ##print("Checker: ", len(checker[0]))
 
   for x in checker:
     res_row = []
     indices_row = []
+    c = 0
     for i in x:
       #if math.sqrt(np.corrcoef(i, events)[0][1] ** 2) >= corr_limit:
       res_row.append(i)
