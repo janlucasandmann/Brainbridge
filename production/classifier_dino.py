@@ -10,6 +10,8 @@ from sklearn import metrics
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 import helpers as hp
+import pygame
+import sys
 
 # How long should one interval be?
 interval_time = 2
@@ -21,8 +23,8 @@ measurement_intervals = 40
 
 #events_initial = [0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0]
 #events_initial = [0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,1,1,0,0,0,0]
-events_initial = [0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0]
-
+#events_initial = [0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0]
+events_initial = [0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0]
 
 #events_initial = [1,0,1,0]
 
@@ -79,6 +81,10 @@ GLOBAL_CORR_LIMIT = 0.2
 
 
 
+
+jump = 0
+MAX_WIDTH = 800
+MAX_HEIGHT = 400
 
 
 
@@ -142,6 +148,11 @@ def calibrateModel(data_raw_one, data_raw_two, events_raw):
     global data_saved
     global X_indices_real
     global GLOBAL_CORR_LIMIT
+    
+    
+    print("step 0 / 7")
+    pygame.init()
+    pygame.display.set_caption('Brainbridge Dino')
     
     print("step 1 / 7")
     data_raw = generateInputData(data_raw_one, data_raw_two) # From now on all sensors in one list 
@@ -211,6 +222,7 @@ def calibrateModel(data_raw_one, data_raw_two, events_raw):
     print("Predictions: ", clf.predict(X_train))
 
 def main(data_raw_one, data_raw_two):
+    global jump
     
     #print("Data raw one: ", data_raw_one)
     #print("Data raw two: ", data_raw_two)
@@ -302,11 +314,42 @@ def main(data_raw_one, data_raw_two):
             
         print("RANDOM FOREST PREDICTION: ", prediction)
         print("LIN REG PREDICTION: ", pred_linreg)
+        
+        if prediction == 1:
+            jump = 1
             
             
 init_count = 0
 print("Entering initialization phase")
 model_train_counter = 0
+
+# DINO STUFF ...
+# set screen, fps
+screen = pygame.display.set_mode((MAX_WIDTH, MAX_HEIGHT))
+fps = pygame.time.Clock()
+
+# dino
+imgDino1 = pygame.image.load('./dino1.png')
+imgDino2 = pygame.image.load('./dino2.png')
+dino_height = imgDino1.get_size()[1]
+dino_bottom = MAX_HEIGHT - dino_height
+dino_x = 50
+dino_y = dino_bottom
+jump_top = 200
+leg_swap = True
+is_bottom = True
+is_go_up = False
+
+# tree
+imgTree = pygame.image.load('tree.png')
+tree_height = imgTree.get_size()[1]
+tree_x = MAX_WIDTH
+tree_y = MAX_HEIGHT - tree_height
+
+
+
+
+
 
 while (end - start) <= running_time:
     end = time.time()
@@ -347,6 +390,50 @@ while (end - start) <= running_time:
             print("jojo")
             calibrateModel(xs_one_initialization, xs_two_initialization, events_initial)
             model_train_counter += 1
+            
+            
+            
+        screen.fill((255, 255, 255))
+
+        if jump == 1:
+            if is_bottom:
+                is_go_up = True
+                is_bottom = False
+            jump = 0
+
+        # dino move
+        if is_go_up:
+            dino_y -= 10.0
+        elif not is_go_up and not is_bottom:
+            dino_y += 10.0
+
+        # dino top and bottom check
+        if is_go_up and dino_y <= jump_top:
+            is_go_up = False
+
+        if not is_bottom and dino_y >= dino_bottom:
+            is_bottom = True
+            dino_y = dino_bottom
+
+        # tree move
+        tree_x -= 12.0
+        if tree_x <= 0:
+            tree_x = MAX_WIDTH
+
+        # draw tree
+        screen.blit(imgTree, (tree_x, tree_y))
+
+        # draw dino
+        if leg_swap:
+            screen.blit(imgDino1, (dino_x, dino_y))
+            leg_swap = False
+        else:
+            screen.blit(imgDino2, (dino_x, dino_y))
+            leg_swap = True
+
+        # update
+        pygame.display.update()
+        #fps.tick(30)
             
         c = 0
         for i in input_data_one:
