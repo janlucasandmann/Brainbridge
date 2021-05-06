@@ -17,16 +17,16 @@ import sys
 interval_time = 2
 
 # How many intervals should be measured?
-measurement_intervals = 40
+measurement_intervals = 100
 
 # Define list of events to initially train the classififer with real labels
 
 #events_initial = [0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0]
 #events_initial = [0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,1,1,0,0,0,0]
 #events_initial = [0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0]
-events_initial = [0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0]
+#events_initial = [0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0]
 
-#events_initial = [1,0,1,0]
+events_initial = [1,1,0,0,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0]
 
 
 # How many intervals for initialization?
@@ -78,7 +78,7 @@ maxi_indices = []
 data_saved = []
 
 GLOBAL_CORR_LIMIT = 0.2
-
+GLOBAL_CORR_LIMIT_NUMBER = 50
 
 
 
@@ -148,6 +148,7 @@ def calibrateModel(data_raw_one, data_raw_two, events_raw):
     global data_saved
     global X_indices_real
     global GLOBAL_CORR_LIMIT
+    global GLOBAL_CORR_LIMIT_NUMBER
     
     
     print("step 0 / 7")
@@ -172,7 +173,7 @@ def calibrateModel(data_raw_one, data_raw_two, events_raw):
     
     print("step 4 / 7")
     # Get frequency bands
-    cores_real_numbers = hp.getFrequencies(1,8, data)
+    cores_real_numbers = hp.getFrequencies(1,49, data)
     print("step 5 / 7")
     # Combine features
     X_whole_input = cores_real_numbers #+ mini + maxi # ??????????????????? DAS GEHT SO NICHT ........
@@ -193,11 +194,18 @@ def calibrateModel(data_raw_one, data_raw_two, events_raw):
         X_reduced_res.append(X_reduced_res_row)
         c += 1
       
+  
+    corr_sort_array = []
+    
     c = 0
     for i in np.transpose(X_reduced_res):
-        if math.sqrt(np.corrcoef(i, events)[0][1] ** 2) > GLOBAL_CORR_LIMIT:
-            X_indices_real.append(c)
+        corr_sort_array.append([c, math.sqrt(np.corrcoef(i, events)[0][1] ** 2)])
         c += 1
+    
+    corr_sorted_array = sorted(corr_sort_array,key=lambda x: x[1])
+    X_indices_real_input = corr_sorted_array[::-1]
+    
+    X_indices_real = np.transpose(X_indices_real_input)[0][0:GLOBAL_CORR_LIMIT_NUMBER]
         
     X_reduced_res_real = []
     
@@ -254,7 +262,7 @@ def main(data_raw_one, data_raw_two):
         #print("Mini zuzu, Maxi zuzuzu: ", mini, maxi, mini_indices, maxi_indices)
         
         # Get frequency bands
-        cores_real_numbers = hp.getFrequencies(1,8, data)
+        cores_real_numbers = hp.getFrequencies(1,49, data)
         #print("COOOOOOOOORRRRREESSS 01010101", cores_real_numbers)
         #print("cores_real_numbers: ", cores_real_numbers)
 
