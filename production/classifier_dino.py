@@ -23,10 +23,10 @@ measurement_intervals = 100
 
 #events_initial = [0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0]
 #events_initial = [0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,1,1,0,0,0,0]
-#events_initial = [0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0]
+events_initial = [0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0]
 #events_initial = [0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0]
 
-events_initial = [1,1,0,0,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0]
+#events_initial = [1,1,0,0,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0]
 
 
 # How many intervals for initialization?
@@ -78,7 +78,7 @@ maxi_indices = []
 data_saved = []
 
 GLOBAL_CORR_LIMIT = 0.2
-GLOBAL_CORR_LIMIT_NUMBER = 50
+GLOBAL_CORR_LIMIT_NUMBER = len(events_initial) + 10
 
 
 
@@ -150,39 +150,39 @@ def calibrateModel(data_raw_one, data_raw_two, events_raw):
     global GLOBAL_CORR_LIMIT
     global GLOBAL_CORR_LIMIT_NUMBER
     
-    
-    print("step 0 / 7")
     pygame.init()
     pygame.display.set_caption('Brainbridge Dino')
     
-    print("step 1 / 7")
     data_raw = generateInputData(data_raw_one, data_raw_two) # From now on all sensors in one list 
     data_split = splitData(data_raw) # [ [ [x,y], [x,y], ... ], ... ]
     #print(len(data_split))
     #print(len(data_split[0]), "data split...")
     #print(len(data_split[0][0]), "data split......")
-    print("step 2 / 7")
+
     data, events = hp.removeArtifacts(data_split, events_raw, 10000, -10, 370, -1)
-    print("step 3 / 7")
     # Get Extreme Points
     mini, maxi, mini_indices, maxi_indices = hp.extremePointsCorrelation(data, events, 10)
     
     
-    print("MINI: ", mini, len(mini))
-    print("MAXI: ", maxi, len(maxi))
-    
-    print("step 4 / 7")
     # Get frequency bands
-    cores_real_numbers = hp.getFrequencies(1,49, data)
-    print("step 5 / 7")
+    cores_real_numbers = hp.getFrequenciesNew(1,14, data)
+    
+    c = 0
+    
+    print("LENS", len(cores_real_numbers), len(cores_real_numbers[0]), len(mini), len(mini[0]), len(maxi), len(maxi[0]))
+    
+    
+    
     # Combine features
     X_whole_input = cores_real_numbers #+ mini + maxi # ??????????????????? DAS GEHT SO NICHT ........
-    print("step 6 / 7")
     # Feature reduction
+    
+    
     X_reduced, X_indices = hp.featureReduction(X_whole_input, 0.12, events)
-    #print("TESTETSTETETST 01010101: ", cores_real_numbers)
+    
     
     X_reduced_res = []
+    
     
     c = 0
     for i in X_reduced:
@@ -194,29 +194,12 @@ def calibrateModel(data_raw_one, data_raw_two, events_raw):
         X_reduced_res.append(X_reduced_res_row)
         c += 1
       
-  
-    corr_sort_array = []
+
     
-    c = 0
-    for i in np.transpose(X_reduced_res):
-        corr_sort_array.append([c, math.sqrt(np.corrcoef(i, events)[0][1] ** 2)])
-        c += 1
+    #X_reduced_res_real, X_indices_real = hp.getFeaturesBasedOnCorrelation(X_reduced_res, events, GLOBAL_CORR_LIMIT_NUMBER)
     
-    corr_sorted_array = sorted(corr_sort_array,key=lambda x: x[1])
-    X_indices_real_input = corr_sorted_array[::-1]
+    X_reduced_res_real, X_indices_real = hp.getFeaturesBasedOnKBest(X_reduced_res, events, GLOBAL_CORR_LIMIT_NUMBER)
     
-    X_indices_real = np.transpose(X_indices_real_input)[0][0:GLOBAL_CORR_LIMIT_NUMBER]
-        
-    X_reduced_res_real = []
-    
-    for epoch in X_reduced_res:
-        X_reduced_res_real_row = []
-        c = 0
-        for x in epoch:
-            if c in X_indices_real:
-                X_reduced_res_real_row.append(x)
-            c += 1
-        X_reduced_res_real.append(X_reduced_res_real_row)
             
     
     X_train, target = hp.generateTrainingSet(X_reduced_res_real, events)
@@ -262,7 +245,7 @@ def main(data_raw_one, data_raw_two):
         #print("Mini zuzu, Maxi zuzuzu: ", mini, maxi, mini_indices, maxi_indices)
         
         # Get frequency bands
-        cores_real_numbers = hp.getFrequencies(1,49, data)
+        cores_real_numbers = hp.getFrequenciesNew(1,14, data)
         #print("COOOOOOOOORRRRREESSS 01010101", cores_real_numbers)
         #print("cores_real_numbers: ", cores_real_numbers)
 

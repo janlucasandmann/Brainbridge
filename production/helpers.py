@@ -3,6 +3,8 @@ import numpy as np
 import math
 import pandas as pd
 import csv
+from sklearn.feature_selection import SelectKBest
+from sklearn.feature_selection import chi2
 
 # Cut out extremely high or low values, as they are probably measuring errors
 
@@ -382,8 +384,8 @@ def getFrequencies(min, max, data):
 	corr = []
 	corr_tapered = []
 	freqs = []
-	i = 1
-	limit = 4
+	i = min
+	limit = max
 
 	while i < limit - 1:
 		min = i
@@ -404,6 +406,48 @@ def getFrequencies(min, max, data):
 					
 	return cores_real_numbers
 
+
+def getFrequenciesNew(min, max, data):
+  corr = []
+  corr.append(getFeatures(1, 4, data))
+  corr.append(getFeatures(8, 12, data))
+  corr.append(getFeatures(4, 8, data))
+  corr.append(getFeatures(12, 35, data))
+  corr.append(getFeatures(13, 32, data))
+
+
+  cores_real_numbers = []
+
+  for frequency in corr:
+    for sensor in np.transpose(frequency):
+      for attribute in np.transpose(sensor):
+        cores_real_numbers.append(attribute)
+					
+  return cores_real_numbers
+
+
+
+def generateTrainingSet(input_data, events):
+	return pd.DataFrame(input_data), events
+
+def write(input_data, names, subject):
+    c = 0
+    for i in input_data:
+        title_string = subject + "-" + names[c] + ".csv"
+        with open(title_string, mode='w') as file:
+            file = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            file.writerow(i) 
+        c += 1
+        
+def flatten_list(_2d_list):
+    flat_list = []
+    # Iterate through the outer list
+    for element in _2d_list:
+        # If the element is of type list, iterate through the sublist
+        for item in element:
+            flat_list.append(item)
+            
+    return flat_list
 
 # Feature selection
 def featureReduction(input_data, corr_limit, events):
@@ -431,25 +475,56 @@ def featureReduction(input_data, corr_limit, events):
 
   return res, indices
 
-def generateTrainingSet(input_data, events):
-	return pd.DataFrame(input_data), events
 
-def write(input_data, names, subject):
+
+
+def getFeaturesBasedOnCorrelation(X_reduced_res, events, GLOBAL_CORR_LIMIT_NUMBER):
+    
+    corr_sort_array = []
+    
     c = 0
-    for i in input_data:
-        title_string = subject + "-" + names[c] + ".csv"
-        with open(title_string, mode='w') as file:
-            file = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            file.writerow(i) 
+    for i in np.transpose(X_reduced_res):
+        corr_sort_array.append([c, math.sqrt(np.corrcoef(i, events)[0][1] ** 2)])
         c += 1
+    
+    corr_sorted_array = sorted(corr_sort_array,key=lambda x: x[1])
+    X_indices_real_input = corr_sorted_array[::-1]
+    
+    X_indices_real = np.transpose(X_indices_real_input)[0][0:GLOBAL_CORR_LIMIT_NUMBER]
         
-def flatten_list(_2d_list):
-    flat_list = []
-    # Iterate through the outer list
-    for element in _2d_list:
-        # If the element is of type list, iterate through the sublist
-        for item in element:
-            flat_list.append(item)
-            
-    return flat_list
+    X_reduced_res_real = []
+    
+    for epoch in X_reduced_res:
+        X_reduced_res_real_row = []
+        c = 0
+        for x in epoch:
+            if c in X_indices_real:
+                X_reduced_res_real_row.append(x)
+            c += 1
+        X_reduced_res_real.append(X_reduced_res_real_row)
+        
+    return X_reduced_res_real, X_indices_real
+
+
+
+def getFeaturesBasedOnKBest(X_reduced_res, events, GLOBAL_CORR_LIMIT_NUMBER):
+    
+    selector = SelectKBest(chi2, k=GLOBAL_CORR_LIMIT_NUMBER)
+    selector.fit(X_reduced_res, events)
+    
+    X_new = selector.transform(X_reduced_res)
+    
+    return X_new, selector.get_support(indices=True)
+
+
+
+
+
+
+
+
+
+
+
+
 				
