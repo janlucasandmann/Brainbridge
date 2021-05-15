@@ -8,7 +8,7 @@ from sklearn.feature_selection import chi2
 
 # Cut out extremely high or low values, as they are probably measuring errors
 
-def removeArtifacts(data_input, events_input, upper_limit_one, lower_limit_one, upper_limit_two, lower_limit_two):
+def removeArtifacts(data_input, events_input, upper_limit_one, upper_limit_two):
   data = []
   events = []
   u = 0
@@ -19,11 +19,11 @@ def removeArtifacts(data_input, events_input, upper_limit_one, lower_limit_one, 
       c = 0
       while c < 2:
         if c == 0:
-          if x[c] == 1018.0:
+          if x[c] == upper_limit_one:
             extreme_value_found = True
             break
           else:
-            if x[c] == 38.0:
+            if x[c] == upper_limit_two:
               extreme_value_found = True
               break
         c += 1
@@ -258,14 +258,10 @@ def findLocalExtremes(up, down, scaler):
 
   return minima_up, maxima_up, minima_down, maxima_down
 
-def findLocalExtremesMain(data, scaler, minima_indices, maxima_indices):
+def findLocalExtremesMain(data, scaler):
   # [[x,y], [x,y], [x,y], ...]
   minima = []
   maxima = []
-
-  minima_res = []
-  maxima_res = []
-  #print("FIND LOCAL EXTREMES: ", data, len(data), len(data[0]), len(data[0][0]))
 
   i = 0
 
@@ -274,23 +270,8 @@ def findLocalExtremesMain(data, scaler, minima_indices, maxima_indices):
     minima.append(minima_row)
     maxima.append(maxima_row)
     
-  #while i < len(data):
-  #minima.append(np.min(data[i:i+scaler]))
-  #maxima.append(np.max(data[i:i+scaler]))
-  #i += scaler
-    
-  c = 0
-  for i in minima:
-    if c in minima_indices:
-      minima_res.append(i)
 
-  c = 0
-  for i in maxima:
-    if c in maxima_indices:
-      maxima_res.append(i)
-        
-
-  return minima_res, maxima_res
+  return minima, maxima
 
 def findLocalExtremesRow(row, scaler):
   minima = []
@@ -320,8 +301,6 @@ def extremePointsCorrelation(data, events, scaler):
   minima_array = []
   maxima_array = []
 
-  minima_indices = []
-  maxima_indices = []
 
   for epoch in data:
     
@@ -340,21 +319,12 @@ def extremePointsCorrelation(data, events, scaler):
   minima_res = []
   maxima_res = []
     
-  k = 0
   for epoch in np.transpose(minima_array):
     c = 0
-    append = False
-
     for i in epoch:
-      #if math.sqrt(np.corrcoef(i, events)[0][1] ** 2) > 0.1:
       minima_res.append(epoch[c])
-      append = True
       c+=1
-    if append:
-      minima_indices.append(k)
-    k += 1
 
-  k = 0
   for epoch in np.transpose(maxima_array):
     c = 0
     append = False
@@ -362,19 +332,14 @@ def extremePointsCorrelation(data, events, scaler):
     for i in epoch:
       #if math.sqrt(np.corrcoef(i, events)[0][1] ** 2) > 0.1:
       maxima_res.append(epoch[c])
-      append = True
       c+=1
-    if append:
-      maxima_indices.append(k)
-    k += 1
   
-  print("MINIMA FUFUFU: ", minima_indices, maxima_indices)
 
-  return minima_res, maxima_res, minima_indices, maxima_indices
+  return minima_res, maxima_res
 
-def extremePointsCorrelationMain(data, scaler, mini_indices, maxi_indices):
+def extremePointsCorrelationMain(data, scaler):
 
-  minima, maxima = findLocalExtremesMain(data, scaler, mini_indices, maxi_indices)
+  minima, maxima = findLocalExtremesMain(data, scaler)
 
   return minima, maxima
 
@@ -407,7 +372,7 @@ def getFrequencies(min, max, data):
 	return cores_real_numbers
 
 
-def getFrequenciesNew(min, max, data):
+def getFrequenciesPredefined(min, max, data):
   corr = []
   corr.append(getFeatures(1, 4, data))
   corr.append(getFeatures(8, 12, data))
@@ -448,32 +413,7 @@ def flatten_list(_2d_list):
             flat_list.append(item)
             
     return flat_list
-
-# Feature selection
-def featureReduction(input_data, corr_limit, events):
-  res = []
-  indices = []
-  
-	
-  checker = np.transpose(input_data)
-  #print("Checker: ", len(checker))
-  ##print("Checker: ", len(checker[0]))
-
-  for x in checker:
-    res_row = []
-    indices_row = []
-    c = 0
-    for i in x:
-      #if math.sqrt(np.corrcoef(i, events)[0][1] ** 2) >= corr_limit:
-      res_row.append(i)
-      indices_row.append(c)
-      c += 1
-    res.append(res_row)
-    indices = indices_row
-    
-  print("CHECKER RES", res, indices)
-
-  return res, indices
+    return flat_list
 
 
 
@@ -517,14 +457,83 @@ def getFeaturesBasedOnKBest(X_reduced_res, events, GLOBAL_CORR_LIMIT_NUMBER):
     return X_new, selector.get_support(indices=True)
 
 
+def generateInputData(data_raw_one, data_raw_two):
+    c = 0
+    data_raw = []
+    
+    for i in data_raw_one:
+        data_raw.append([i, data_raw_two[c]])
+        c += 1
+        
+    return data_raw
 
 
+def splitData(data_raw):
+    u = 0
+    data_row = []
+    data_split = []
+    
+    for i in data_raw:
+        u += 1
+        data_row.append(i)
+        
+        if u == 200:
+            data_split.append(data_row)
+            u = 0
+            data_row = []
+            
+    return data_split
 
 
+def reduceFeatures(input_data, X_indices):
+    res = []
+    
+    c = 0
+    for i in input_data:
+        if c in X_indices:
+            res.append(i)
+        c += 1
+            
+    return res
 
+def concatenateFeatures(cores_real_numbers, mini, maxi):
+    X_reduced_res = []
+    
+    c = 0
+    for i in np.transpose(cores_real_numbers):
+        X_reduced_res_row = []
+        for x in i:
+            X_reduced_res_row.append(x)
+        for x in np.transpose(mini)[c]:
+            X_reduced_res_row.append(x)
+        for x in np.transpose(maxi)[c]:
+            X_reduced_res_row.append(x)
+        X_reduced_res.append(X_reduced_res_row)
+        c += 1
+    
+    return X_reduced_res
+      
+    
 
+def concatenateFeaturesMain(cores_real_numbers, mini, maxi, X_indices_real):
+    
+    X_predict = flatten_list(cores_real_numbers)
+    
+    for i in mini:
+        for x in i:
+            X_predict.append(x)
+    for i in maxi:
+        for x in i:
+            X_predict.append(x)
 
-
-
-
+    # Reduce Features
+    X_reduced_res_real = []
+    c = 0
+    for x in X_predict:
+        if c in X_indices_real:
+            X_reduced_res_real.append(x)
+        c += 1
+        
+    return X_reduced_res_real
+    
 				
