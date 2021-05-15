@@ -13,6 +13,11 @@ import helpers as hp
 import pygame
 import sys
 
+# Settings for Dino game
+jump = 0
+MAX_WIDTH = 800
+MAX_HEIGHT = 400
+
 # How long should one interval be?
 interval_time = 2
 
@@ -22,8 +27,9 @@ measurement_intervals = 100
 # Define list of events to initially train the classififer with real labels
 
 #events_initial = [0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0]
-#events_initial = [0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,1,1,0,0,0,0]
-events_initial = [0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0]
+events_initial = [0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,1,1,0,0,0,0]
+#events_initial = [0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0]
+#events_initial = [0,0,1,1]
 #events_initial = [0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0]
 
 #events_initial = [1,1,0,0,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0]
@@ -69,134 +75,54 @@ device.start(samplingRate, acqChannels)
 start = time.time()
 end = time.time()
 
-clf=RandomForestClassifier(n_estimators=10)
+clf=RandomForestClassifier(n_estimators=500)
 reg = LinearRegression()
 X_indices = []
 X_indices_real = []
-mini_indices = []
-maxi_indices = []
 data_saved = []
 
 GLOBAL_CORR_LIMIT = 0.2
 GLOBAL_CORR_LIMIT_NUMBER = len(events_initial) + 10
 
+GLOBAL_JUMP_MEMORY_ONE = 0
+GLOBAL_JUMP_MEMORY_TWO = 0
 
+GLOBAL_UPPER_WARNING_LIMIT_ONE = 1018
+GLOBAL_UPPER_WARNING_LIMIT_TWO = 38
 
-jump = 0
-MAX_WIDTH = 800
-MAX_HEIGHT = 400
+GLOBAL_PREDICTION_NUMBER = 1
 
-
-
-
-
-def generateInputData(data_raw_one, data_raw_two):
-    c = 0
-    data_raw = []
-    
-    for i in data_raw_one:
-        data_raw.append([i, data_raw_two[c]])
-        c += 1
-        
-    return data_raw
-
-def splitData(data_raw):
-    u = 0
-    data_row = []
-    data_split = []
-    
-    for i in data_raw:
-        u += 1
-        data_row.append(i)
-        
-        if u == 200:
-            data_split.append(data_row)
-            u = 0
-            data_row = []
-            
-    return data_split
-    
-def reduceFeaturesBackup(input_data, X_indices):
-    res = []
-    
-    c = 0
-    for i in input_data:
-        if c in X_indices:
-            res.append(i)
-        c += 1
-            
-    return res
-
-def reduceFeatures(input_data, X_indices):
-    res = []
-    
-    c = 0
-    for i in input_data:
-        if c in X_indices:
-            res.append(i)
-        c += 1
-            
-    return res
 
 
 def calibrateModel(data_raw_one, data_raw_two, events_raw):
+    
+    # Load global variables
     global clf
     global reg
     global X_indices
-    global mini_indices
-    global maxi_indices
     global data_saved
     global X_indices_real
     global GLOBAL_CORR_LIMIT
     global GLOBAL_CORR_LIMIT_NUMBER
+    global GLOBAL_UPPER_WARNING_LIMIT_ONE
+    global GLOBAL_UPPER_WARNING_LIMIT_TWO
     
+    # Initialize dino game
     pygame.init()
     pygame.display.set_caption('Brainbridge Dino')
     
-    data_raw = generateInputData(data_raw_one, data_raw_two) # From now on all sensors in one list 
-    data_split = splitData(data_raw) # [ [ [x,y], [x,y], ... ], ... ]
-    #print(len(data_split))
-    #print(len(data_split[0]), "data split...")
-    #print(len(data_split[0][0]), "data split......")
+    data_raw = hp.generateInputData(data_raw_one, data_raw_two) # From now on all sensors in one list 
+    data_split = hp.splitData(data_raw) # [ [ [x,y], [x,y], ... ], ... ]
 
-    data, events = hp.removeArtifacts(data_split, events_raw, 10000, -10, 370, -1)
-    # Get Extreme Points
-    mini, maxi, mini_indices, maxi_indices = hp.extremePointsCorrelation(data, events, 10)
+    data, events = hp.removeArtifacts(data_split, events_raw, GLOBAL_UPPER_WARNING_LIMIT_ONE, GLOBAL_UPPER_WARNING_LIMIT_TWO)
     
+    # Get Extreme Points
+    mini, maxi = hp.extremePointsCorrelation(data, events, 10)
     
     # Get frequency bands
-    cores_real_numbers = hp.getFrequenciesNew(1,14, data)
+    cores_real_numbers = hp.getFrequenciesPredefined(1,14, data)
     
-    c = 0
-    
-    print("LENS", len(cores_real_numbers), len(cores_real_numbers[0]), len(mini), len(mini[0]), len(maxi), len(maxi[0]))
-    
-    
-    
-    # Combine features
-    X_whole_input = cores_real_numbers #+ mini + maxi # ??????????????????? DAS GEHT SO NICHT ........
-    # Feature reduction
-    
-    
-    X_reduced, X_indices = hp.featureReduction(X_whole_input, 0.12, events)
-    
-    
-    X_reduced_res = []
-    
-    
-    c = 0
-    for i in X_reduced:
-        X_reduced_res_row = i
-        for x in np.transpose(mini)[c]:
-            X_reduced_res_row.append(x)
-        for x in np.transpose(maxi)[c]:
-            X_reduced_res_row.append(x)
-        X_reduced_res.append(X_reduced_res_row)
-        c += 1
-      
-
-    
-    #X_reduced_res_real, X_indices_real = hp.getFeaturesBasedOnCorrelation(X_reduced_res, events, GLOBAL_CORR_LIMIT_NUMBER)
+    X_reduced_res = hp.concatenateFeatures(cores_real_numbers, mini, maxi)
     
     X_reduced_res_real, X_indices_real = hp.getFeaturesBasedOnKBest(X_reduced_res, events, GLOBAL_CORR_LIMIT_NUMBER)
     
@@ -213,23 +139,19 @@ def calibrateModel(data_raw_one, data_raw_two, events_raw):
     print("Predictions: ", clf.predict(X_train))
 
 def main(data_raw_one, data_raw_two):
-    global jump
-    
-    #print("Data raw one: ", data_raw_one)
-    #print("Data raw two: ", data_raw_two)
-    
-    global X_indices
-    global mini_indices
-    global maxi_indices
-    
+    global jump    
+    global X_indices 
     global X_indices_real
+    global GLOBAL_JUMP_MEMORY_ONE
+    global GLOBAL_JUMP_MEMORY_TWO
+    global GLOBAL_PREDICTION_NUMBER
     
-    data_raw = generateInputData(data_raw_one, data_raw_two)
+    data_raw = hp.generateInputData(data_raw_one, data_raw_two)
     data_split = [data_raw] # Data already split...
     
     extremeValue = False
     
-    if 1018 in np.transpose(data_split)[0]:
+    if GLOBAL_UPPER_WARNING_LIMIT_ONE in np.transpose(data_split)[0]:
         extremeValue = True
         
     if extremeValue:
@@ -240,74 +162,31 @@ def main(data_raw_one, data_raw_two):
         print("Data: ", data, len(data))
         
         # Get Extreme Points
-        mini, maxi = hp.extremePointsCorrelationMain(data, 10, mini_indices, maxi_indices)
-        
-        #print("Mini zuzu, Maxi zuzuzu: ", mini, maxi, mini_indices, maxi_indices)
-        
+        mini, maxi = hp.extremePointsCorrelationMain(data, 10)
         # Get frequency bands
-        cores_real_numbers = hp.getFrequenciesNew(1,14, data)
-        #print("COOOOOOOOORRRRREESSS 01010101", cores_real_numbers)
-        #print("cores_real_numbers: ", cores_real_numbers)
-
-        # Combine features
-        X_whole_input = cores_real_numbers
+        cores_real_numbers = hp.getFrequenciesPredefined(1,14, data)
+        # Concatenate both lists to one prediction list
+        X_predict = hp.concatenateFeaturesMain(cores_real_numbers, mini, maxi, X_indices_real)
         
-        #print("X_whole_input: ", X_whole_input[0:20], len(X_whole_input))
-
-        X_reduced = reduceFeatures(X_whole_input, X_indices)
-        #X_reduced = X_reduced + mini + maxi
-        #print("X_reduced: ", X_reduced)
-        #print("Len X_reduced: ", len(X_reduced))
-        #print("X_reduced: ", X_reduced[len(X_reduced) - 1])
-        #print("Len X_reduced: ", X_reduced[len(X_reduced) - 1])
-        
-        X_predict = hp.flatten_list(X_reduced)
-        
-        for i in mini:
-            for x in i:
-                X_predict.append(x)
-        for i in maxi:
-            for x in i:
-                X_predict.append(x)
-                
-                
-        X_reduced_res_real = []
-    
-        c = 0
-        for x in X_predict:
-            if c in X_indices_real:
-                X_reduced_res_real.append(x)
-            c += 1
-        
-        print("X PREDICT: ", X_reduced_res_real, len(X_reduced_res_real))
-        #    print("UIUO", data)
-        #   print("UIUO", mini, maxi)
-        #   print("UIUO", cores_real_numbers)
-        # print("UIUO", X_whole_input)
-        #    print("--------------------")
-        #   print("X WHOLE INPUT: ", len(X_whole_input))
-        #  print("X INDICES: ", X_indices)
-        ##print("REDUCE FEATURES: ", reduceFeatures(X_whole_input, X_indices))
-        #print(len(X_reduced))
-        
-        
-        
-        prediction = clf.predict([X_reduced_res_real])
-        pred_linreg = reg.predict([X_reduced_res_real])
+        # Get predictions
+        prediction = clf.predict([X_predict])
+        pred_linreg = reg.predict([X_predict])
         
         pred.append([prediction, pred_linreg])
-        
-        
-        #if prediction == 1:
-            #print("SIGNAL!!!!!!! ", prediction)
-        #else:
-            #print("No Signal. ", prediction)
             
-        print("RANDOM FOREST PREDICTION: ", prediction)
-        print("LIN REG PREDICTION: ", pred_linreg)
+        print(GLOBAL_PREDICTION_NUMBER, " RANDOM FOREST PREDICTION: ", prediction)
+        print(GLOBAL_PREDICTION_NUMBER, "LIN REG PREDICTION: ", pred_linreg)
+        GLOBAL_PREDICTION_NUMBER += 1
         
-        if prediction == 1:
+        if prediction == 1 and GLOBAL_JUMP_MEMORY_ONE == 0:
             jump = 1
+            GLOBAL_JUMP_MEMORY_TWO = GLOBAL_JUMP_MEMORY_ONE
+            GLOBAL_JUMP_MEMORY_ONE = 1
+        else:
+            GLOBAL_JUMP_MEMORY_TWO = GLOBAL_JUMP_MEMORY_ONE
+            GLOBAL_JUMP_MEMORY_ONE = 0
+            
+        
             
             
 init_count = 0
@@ -356,7 +235,7 @@ while (end - start) <= running_time:
         input_data_two.append(raw[i][6])
     
     if init_count < initialization_intervals: # If we are in initialization phase
-        if 1018 in input_data_one:
+        if GLOBAL_UPPER_WARNING_LIMIT_ONE in input_data_one:
             print("warning")
         
         c = 0
@@ -394,9 +273,9 @@ while (end - start) <= running_time:
 
         # dino move
         if is_go_up:
-            dino_y -= 10.0
+            dino_y -= 15.0
         elif not is_go_up and not is_bottom:
-            dino_y += 10.0
+            dino_y += 15.0
 
         # dino top and bottom check
         if is_go_up and dino_y <= jump_top:
@@ -407,7 +286,7 @@ while (end - start) <= running_time:
             dino_y = dino_bottom
 
         # tree move
-        tree_x -= 12.0
+        tree_x -= 8.0
         if tree_x <= 0:
             tree_x = MAX_WIDTH
 
