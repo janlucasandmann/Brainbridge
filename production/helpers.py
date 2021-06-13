@@ -65,21 +65,18 @@ def applyTapering(data, zeros):
 
   for x in data:
     c = 0
-  res_row = []
-  res_row_mini = []
-  zero_list = []
-  for i in x[0]:
-    zero_list.append(0)
+    res_row = []
+    res_row_mini = []
+    zero_list = []
 
-  zero_list = zero_list * zeros
+    for y in x:
+      for i in y:
+        res_row_mini.append(i * tapering_function[c])
+        
+      res_row.append(res_row_mini)
+      c += 1
 
-  for y in x:
-    for i in y:
-      res_row_mini.append(i * tapering_function[c])
-    res_row.append(res_row_mini)
-    c += 1
-
-    res.append(zero_list + res_row + zero_list)
+    res.append(res_row)
 
   return res
 
@@ -372,8 +369,15 @@ def getFrequencies(min, max, data):
 	return cores_real_numbers
 
 
-def getFrequenciesPredefined(min, max, data):
+def getFrequenciesPredefined(data):
   corr = []
+  #data = applyTapering(data,0)
+
+  #corr.append(getFeatures(1, 4, applyTapering(data,0)))
+  #corr.append(getFeatures(8, 12, applyTapering(data,0)))
+  #corr.append(getFeatures(4, 8, applyTapering(data,0)))
+  #corr.append(getFeatures(12, 35, applyTapering(data,0)))
+  #corr.append(getFeatures(13, 32, applyTapering(data,0)))
   corr.append(getFeatures(1, 4, data))
   corr.append(getFeatures(8, 12, data))
   corr.append(getFeatures(4, 8, data))
@@ -382,6 +386,7 @@ def getFrequenciesPredefined(min, max, data):
 
 
   cores_real_numbers = []
+
 
   for frequency in corr:
     for sensor in np.transpose(frequency):
@@ -510,6 +515,9 @@ def concatenateFeatures(cores_real_numbers, mini, maxi):
             X_reduced_res_row.append(x)
         X_reduced_res.append(X_reduced_res_row)
         c += 1
+        
+    
+    print("VISITE 2: ", len(X_reduced_res), len(X_reduced_res[0]), len(cores_real_numbers[0]), len(np.transpose(cores_real_numbers)[0]), "MINI, MAXI: ", len(mini[0]), len(maxi[0]))
     
     return X_reduced_res
       
@@ -525,6 +533,8 @@ def concatenateFeaturesMain(cores_real_numbers, mini, maxi, X_indices_real):
     for i in maxi:
         for x in i:
             X_predict.append(x)
+            
+    print("VISITE 2: ", len(X_predict), len(cores_real_numbers), len(mini), len(maxi))
 
     # Reduce Features
     X_reduced_res_real = []
@@ -535,5 +545,29 @@ def concatenateFeaturesMain(cores_real_numbers, mini, maxi, X_indices_real):
         c += 1
         
     return X_reduced_res_real
+
+
+
+def evaluatePrediction(pred, evaluatePredictionIterations, evaluatePredictionThreshold):
+    signal_counter = 0
+    
+    if len(pred) >= evaluatePredictionIterations:
+        for i in pred[-evaluatePredictionIterations:]:
+            if i == 1:
+                signal_counter += 1
+        
+        if signal_counter >= evaluatePredictionThreshold: #and pred[len(pred) - 1] == 1:
+            return True
+        
+    return False
+            
+            
+        
+
+
+
+
+
+
     
 				
