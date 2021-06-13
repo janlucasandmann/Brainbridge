@@ -12,6 +12,7 @@ from sklearn.linear_model import LinearRegression
 import helpers as hp
 import pygame
 import sys
+import genetic as gen
 
 # Settings for Dino game
 jump = 0
@@ -21,17 +22,20 @@ MAX_HEIGHT = 400
 # How long should one interval be?
 interval_time = 2
 
+# How often should the incoming data be classified within the invterval time?
+GLOBAL_CLASSIFICATION_FREQUENCY = 5
+
 # How many intervals should be measured?
 measurement_intervals = 100
 
 # Define list of events to initially train the classififer with real labels
 
 #events_initial = [0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0]
-events_initial = [0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,1,1,0,0,0,0]
+#events_initial = [0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,1,1,0,0,0,0]
 #events_initial = [0,0,0,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0]
 #events_initial = [0,0,1,1]
 #events_initial = [0,1,0,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,0,0,0,0]
-
+events_initial = [1,0,0,1,0]
 #events_initial = [1,1,0,0,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0,0,0,1,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,1,1,1,0,0,0,0]
 
 
@@ -82,15 +86,18 @@ X_indices_real = []
 data_saved = []
 
 GLOBAL_CORR_LIMIT = 0.2
-GLOBAL_CORR_LIMIT_NUMBER = len(events_initial) + 10
+GLOBAL_CORR_LIMIT_NUMBER = len(events_initial) + 2
 
 GLOBAL_JUMP_MEMORY_ONE = 0
 GLOBAL_JUMP_MEMORY_TWO = 0
 
-GLOBAL_UPPER_WARNING_LIMIT_ONE = 1018
-GLOBAL_UPPER_WARNING_LIMIT_TWO = 38
+GLOBAL_UPPER_WARNING_LIMIT_ONE = 10180
+GLOBAL_UPPER_WARNING_LIMIT_TWO = 380
 
 GLOBAL_PREDICTION_NUMBER = 1
+GLOBAL_EVALUATE_PREDICTION_INTERVALS = 5
+GLOBAL_EVALUATE_PREDICTION_THRESHOLD = 3
+GLOBAL_EVALUATE_PREDICTION_BLOCKER = 0
 
 
 
@@ -120,13 +127,35 @@ def calibrateModel(data_raw_one, data_raw_two, events_raw):
     mini, maxi = hp.extremePointsCorrelation(data, events, 10)
     
     # Get frequency bands
-    cores_real_numbers = hp.getFrequenciesPredefined(1,14, data)
+    cores_real_numbers = hp.getFrequenciesPredefined(data)
     
     X_reduced_res = hp.concatenateFeatures(cores_real_numbers, mini, maxi)
     
-    X_reduced_res_real, X_indices_real = hp.getFeaturesBasedOnKBest(X_reduced_res, events, GLOBAL_CORR_LIMIT_NUMBER)
+    #print("len X_reduced_res: XXXXXdfgfdgdfgdfdfgwesfhdsjksdhfdsjkXXX ", len(X_reduced_res), len(X_reduced_res[0]), len(mini[0][0]), len(maxi[0][0]), len(cores_real_numbers[0][0]))
     
-            
+    #X_reduced_res_real, X_indices_real = hp.getFeaturesBasedOnKBest(X_reduced_res, events, GLOBAL_CORR_LIMIT_NUMBER)
+    
+    # ------------------------------------------------------------------------------------------------------------------------------------- #
+    
+    print("Starting genetic algorithm")
+    
+    X_indices_real = gen.simulateEvolution(np.transpose(X_reduced_res), 8, 24, 2, 2, 0.5, (len(events) - 2), 100, events)
+    
+    print("Ended genetic algorithm")
+    print(X_indices_real)
+    
+    X_reduced_res_real = []
+    
+    for row in X_reduced_res:
+        res_row = []
+        c = 0
+        for i in row:
+            if c in X_indices_real:
+                res_row.append(i)
+            c += 1
+        X_reduced_res_real.append(res_row)
+    
+    # ------------------------------------------------------------------------------------------------------------------------------------- #
     
     X_train, target = hp.generateTrainingSet(X_reduced_res_real, events)
     print("X Train: ", X_train)
@@ -145,6 +174,8 @@ def main(data_raw_one, data_raw_two):
     global GLOBAL_JUMP_MEMORY_ONE
     global GLOBAL_JUMP_MEMORY_TWO
     global GLOBAL_PREDICTION_NUMBER
+    global GLOBAL_EVALUATE_PREDICTION_INTERVALS
+    global GLOBAL_EVALUATE_PREDICTION_THRESHOLD
     
     data_raw = hp.generateInputData(data_raw_one, data_raw_two)
     data_split = [data_raw] # Data already split...
@@ -160,31 +191,48 @@ def main(data_raw_one, data_raw_two):
     else:
         data = data_split
         print("Data: ", data, len(data))
+        print("X indices kumbaya: ", X_indices_real)
         
         # Get Extreme Points
         mini, maxi = hp.extremePointsCorrelationMain(data, 10)
         # Get frequency bands
-        cores_real_numbers = hp.getFrequenciesPredefined(1,14, data)
+        cores_real_numbers = hp.getFrequenciesPredefined(data)
         # Concatenate both lists to one prediction list
         X_predict = hp.concatenateFeaturesMain(cores_real_numbers, mini, maxi, X_indices_real)
         
+        print("mini: ", mini)
+        print("maxi: ", maxi)
+        print("X_predict: ", X_predict)
+        #print("len x predict tzrutzuertzeurzt nicht nuct: ", len(X_predict), len(cores_real_numbers), len(mini[0]), len(maxi[0]), len(cores_real_numbers))
+        
         # Get predictions
         prediction = clf.predict([X_predict])
-        pred_linreg = reg.predict([X_predict])
+        #pred_linreg = reg.predict([X_predict])
         
-        pred.append([prediction, pred_linreg])
+        pred.append(prediction)
             
         print(GLOBAL_PREDICTION_NUMBER, " RANDOM FOREST PREDICTION: ", prediction)
-        print(GLOBAL_PREDICTION_NUMBER, "LIN REG PREDICTION: ", pred_linreg)
+        #print(GLOBAL_PREDICTION_NUMBER, "LIN REG PREDICTION: ", pred_linreg)
         GLOBAL_PREDICTION_NUMBER += 1
         
-        if prediction == 1 and GLOBAL_JUMP_MEMORY_ONE == 0:
-            jump = 1
-            GLOBAL_JUMP_MEMORY_TWO = GLOBAL_JUMP_MEMORY_ONE
-            GLOBAL_JUMP_MEMORY_ONE = 1
-        else:
-            GLOBAL_JUMP_MEMORY_TWO = GLOBAL_JUMP_MEMORY_ONE
-            GLOBAL_JUMP_MEMORY_ONE = 0
+        
+        #TODO: Diese geringeren Intervalle neu durchdenken ...
+        #if hp.evaluatePrediction(pred, GLOBAL_EVALUATE_PREDICTION_INTERVALS, GLOBAL_EVALUATE_PREDICTION_THRESHOLD):
+        #    if GLOBAL_EVALUATE_PREDICTION_BLOCKER == 0:
+        #        jump = 1
+                
+        #GLOBAL_EVALUATE_PREDICTION_BLOCKER += 1
+            
+        #if GLOBAL_EVALUATE_PREDICTION_BLOCKER == 5:
+        #    GLOBAL_EVALUATE_PREDICTION_BLOCKER = 0
+        
+        #if prediction == 1 and GLOBAL_JUMP_MEMORY_ONE == 0 and GLOBAL_JUMP_MEMORY_TWO == 0:
+        #    jump = 1
+        #    GLOBAL_JUMP_MEMORY_TWO = GLOBAL_JUMP_MEMORY_ONE
+        #    GLOBAL_JUMP_MEMORY_ONE = 1
+        #else:
+        #    GLOBAL_JUMP_MEMORY_TWO = GLOBAL_JUMP_MEMORY_ONE
+        #    GLOBAL_JUMP_MEMORY_ONE = 0
             
         
             
@@ -246,6 +294,9 @@ while (end - start) <= running_time:
                 
         if len(xs_one_initialization) % (interval_time * samplingRate) == 0: # After n seconds of measurement
             init_count += 1
+            print("TERROR 1", xs_one_initialization)
+            print("TERROR 2", xs_one_initialization)
+            
             if init_count < len(events_initial):
                 if events_initial[init_count] == 1:
                     print("HOCH")
@@ -257,7 +308,6 @@ while (end - start) <= running_time:
         
     else: # If we are in production phase
         if model_train_counter == 0:
-            print("jojo")
             calibrateModel(xs_one_initialization, xs_two_initialization, events_initial)
             model_train_counter += 1
             
@@ -311,10 +361,17 @@ while (end - start) <= running_time:
             xs_two_row.append(input_data_two[c])
             c += 1
             
-        if len(xs_one_row) % (interval_time * samplingRate) == 0: # After n seconds of measurement
+        if len(xs_one_row) % 200 == 0: # After n seconds of measurement
             xs_one.append(xs_one_row)
             xs_two.append(xs_two_row)
+            
+            # TODO: Abstände der Messungen verringern!!!!!
+            
+            print("Kumbayayayayaa", len(xs_one_row), len(xs_two_row))
+            
+            #main(xs_one_row[(-interval_time * samplingRate):], xs_two_row[(-interval_time * samplingRate):])
             main(xs_one_row, xs_two_row)
+            
             xs_one_row = []
             xs_two_row = []
             

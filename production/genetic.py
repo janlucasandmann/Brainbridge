@@ -11,12 +11,24 @@ def generateDnaString(numberOfGenes, X_input):
     possibleGenes = len(X_input)
     geneNumbers = []
     dnaString = []
+    
 
     i = 0
     while i < numberOfGenes:
         rnd = -1
+        
         while rnd in geneNumbers or rnd == -1:
             rnd = random.randint(0, (possibleGenes - 1))
+        """
+            
+        c = 0
+        while c < 1:
+            rnd = random.randint(0, (possibleGenes - 1))
+            print(rnd)
+            if not rnd in geneNumbers:
+                print("dumdidadeldei")
+                c += 1
+        """
 
         geneNumbers.append(rnd)
         dnaString.append(X_input[rnd])
@@ -35,7 +47,7 @@ def evaluateDnaString(dnaString, events, trainingNumber, estimators):
 
     return metrics.accuracy_score(events[trainingNumber:], prediction)
 
-def killWeakSubjects(dnaStrings, killRate, trainingNumber, estimators):
+def killWeakSubjects(dnaStrings, killRate, trainingNumber, estimators, events):
 
     kill = len(dnaStrings) * killRate
     res = [] 
@@ -95,7 +107,7 @@ def mutateGenes(geneNumbers, dnaString, numberOfMutations, X_input):
 
     return [geneNumbers, np.transpose(dnaString)]
 
-def simulateEvolution(X_input, numberOfGenes, numberOfSubjects, numberOfGenerations, numberOfMutations, killRate, trainingNumber, estimators):
+def simulateEvolution(X_input, numberOfGenes, numberOfSubjects, numberOfGenerations, numberOfMutations, killRate, trainingNumber, estimators, events):
     # X_input must be transposed!
 
     subjects = []
@@ -107,17 +119,19 @@ def simulateEvolution(X_input, numberOfGenes, numberOfSubjects, numberOfGenerati
 
     k = 0
     while k < numberOfGenerations:
-        decimatedSubjects = killWeakSubjects(subjects, killRate, trainingNumber, estimators)
+        print("Starting generation ", (k+1))
+        decimatedSubjects = killWeakSubjects(subjects, killRate, trainingNumber, estimators, events)
         kids = []
         subjects = decimatedSubjects
 
         c = 0
-        while c < len(decimatedSubjects[0]):
-            new_kids = sex(decimatedSubjects[c], decimatedSubjects[len(decimatedSubjects) - c - 1], 2, X_input, numberOfMutations)
-            
-            for i in new_kids:
-                subjects.append(i)
-            c += 1
+        if k < numberOfGenerations - 1:
+            while c < len(decimatedSubjects[0]):
+                new_kids = sex(decimatedSubjects[c], decimatedSubjects[len(decimatedSubjects) - c - 1], 2, X_input, numberOfMutations)
+
+                for i in new_kids:
+                    subjects.append(i)
+                c += 1
         k += 1
 
-    return subjects
+    return subjects[len(subjects) - 1][0]
